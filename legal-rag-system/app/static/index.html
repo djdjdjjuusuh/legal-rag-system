@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>法律RAG多智能体协作系统</title>
+<link rel="stylesheet" href="/static/css/style.css?v=15">
+</head>
+<body>
+
+<!-- 左侧栏：推理配置 + 知识库 -->
+<aside id="sidebar-left">
+  <div class="sidebar-header">
+    <h1>⚖️ 法律智能助手</h1>
+    <span class="version">v2.0</span>
+  </div>
+
+  <!-- 推理模式 -->
+  <section class="sidebar-section">
+    <h3>推理范式</h3>
+    <div class="mode-selector">
+      <button class="mode-btn active" data-mode="react" title="思考→行动→观察循环推理">
+        <span class="mode-icon">🔄</span>
+        <span class="mode-label">ReAct</span>
+        <small>逐步推理+工具调用</small>
+      </button>
+      <button class="mode-btn" data-mode="plan_solve" title="先规划再逐步执行">
+        <span class="mode-icon">📋</span>
+        <span class="mode-label">Plan-Solve</span>
+        <small>规划→执行→合成</small>
+      </button>
+      <button class="mode-btn" data-mode="reflection" title="生成回答后自我审查改进">
+        <span class="mode-icon">🔍</span>
+        <span class="mode-label">Reflection</span>
+        <small>生成→反思→改进</small>
+      </button>
+    </div>
+  </section>
+
+  <!-- 性格配置 -->
+  <section class="sidebar-section">
+    <h3>助手性格</h3>
+    <div class="persona-config">
+      <div class="form-group">
+        <label>角色定位</label>
+        <select id="persona-role">
+          <option value="法律顾问" selected>法律顾问</option>
+          <option value="法务助理">法务助理</option>
+          <option value="学者型研究员">学者型研究员</option>
+          <option value="模拟对方律师">模拟对方律师</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>用语风格</label>
+        <select id="persona-formality">
+          <option value="正式严谨" selected>正式严谨</option>
+          <option value="半正式亲和">半正式亲和</option>
+          <option value="简明扼要">简明扼要</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>输出篇幅</label>
+        <select id="persona-verbosity">
+          <option value="详细解释">详细解释</option>
+          <option value="标准篇幅" selected>标准篇幅</option>
+          <option value="只给结论">只给结论</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group half">
+          <label>语气</label>
+          <select id="persona-tone">
+            <option value="冷静中立" selected>冷静中立</option>
+            <option value="坚定有力">坚定有力</option>
+            <option value="温和耐心">温和耐心</option>
+          </select>
+        </div>
+        <div class="form-group half">
+          <label>称呼</label>
+          <select id="persona-address">
+            <option value="您" selected>您</option>
+            <option value="你">你</option>
+            <option value="当事人">当事人</option>
+            <option value="客户">客户</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group checkbox-group">
+        <label>
+          <input type="checkbox" id="persona-conclusion" checked>
+          结论先行（适合忙碌的律师）
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <!-- 知识库状态 -->
+  <section class="sidebar-section kb-section">
+    <h3>知识库状态</h3>
+    <div id="kb-stats" class="kb-stats">
+      <div class="stat-item"><span class="stat-label">法规库</span><span class="stat-value" id="stat-statutes">0</span></div>
+      <div class="stat-item"><span class="stat-label">案例库</span><span class="stat-value" id="stat-cases">0</span></div>
+      <div class="stat-item"><span class="stat-label">实务库</span><span class="stat-value" id="stat-practical">0</span></div>
+    </div>
+    <div class="kb-doc-section">
+      <div class="kb-doc-header">
+        <span class="kb-doc-header-title">文档列表</span>
+        <button id="kb-refresh-btn" class="kb-refresh-btn" title="刷新">🔄</button>
+      </div>
+      <div id="kb-doc-list" class="kb-doc-list">
+        <div class="kb-empty">加载中...</div>
+      </div>
+    </div>
+  </section>
+</aside>
+
+<!-- 中间对话区 -->
+<main id="main-content">
+  <header id="chat-header">
+    <div class="header-info">
+      <h2 id="current-mode-label">🔄 ReAct 推理模式</h2>
+      <span id="conversation-id" class="conv-id"></span>
+    </div>
+    <div class="header-actions">
+      <button id="btn-upload" class="btn-header" title="上传文件到知识库">📎 上传文件</button>
+      <button id="btn-clear-chat" class="btn-header">🗑️ 清空对话</button>
+    </div>
+  </header>
+
+  <!-- 时间天气问候横幅 -->
+  <div id="greeting-banner" class="greeting-banner">
+    <div class="greeting-text">
+      <span id="greeting-emoji">👋</span>
+      <span id="greeting-word">欢迎</span>
+    </div>
+    <div class="greeting-info">
+      <span id="greeting-date">--</span>
+      <span class="greeting-sep">|</span>
+      <span id="greeting-weather">⏳ 加载中...</span>
+    </div>
+  </div>
+
+  <div id="chat-messages" class="chat-messages">
+    <div class="welcome-message">
+      <div class="welcome-icon">⚖️</div>
+      <h2>欢迎使用法律RAG多智能体系统</h2>
+      <p>基于DeepSeek的法律智能助手，支持三种推理范式</p>
+      <div class="welcome-suggestions">
+        <button class="suggestion-btn" data-query="劳动仲裁需要什么材料？">劳动仲裁需要什么材料？</button>
+        <button class="suggestion-btn" data-query="民法典关于合同违约的规定是什么？">民法典关于合同违约的规定是什么？</button>
+        <button class="suggestion-btn" data-query="公司拖欠工资，如何申请劳动仲裁？">公司拖欠工资，如何申请劳动仲裁？</button>
+        <button class="suggestion-btn" data-query="诉讼时效是多长时间？">诉讼时效是多长时间？</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="chat-input-area" class="chat-input-area">
+    <div class="input-container">
+      <textarea id="chat-input" placeholder="请输入您的法律问题..." rows="1"></textarea>
+      <div class="input-actions">
+        <label class="file-upload-btn" title="上传文件">
+          📎
+          <input type="file" id="file-input" accept=".txt,.pdf,.doc,.docx,.md,.json" multiple hidden>
+        </label>
+        <button id="btn-send" class="btn-send">发送</button>
+      </div>
+    </div>
+    <p class="input-hint">按 Enter 发送，Shift+Enter 换行 | 法律结论将标注引用来源</p>
+  </div>
+
+  <!-- 文件上传弹窗 -->
+  <div id="upload-modal" class="modal" style="display:none">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>上传文件到知识库</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label>选择目标知识库</label>
+        <div class="kb-target-selector" id="kb-target-selector">
+          <button class="kb-target-btn active" data-type="statutes">
+            <span class="kb-target-icon">📜</span>
+            <span>法规库</span>
+          </button>
+          <button class="kb-target-btn" data-type="cases">
+            <span class="kb-target-icon">⚖️</span>
+            <span>案例库</span>
+          </button>
+          <button class="kb-target-btn" data-type="practical">
+            <span class="kb-target-icon">📋</span>
+            <span>实务库</span>
+          </button>
+        </div>
+        <div class="upload-dropzone" id="upload-dropzone">
+          <p>📂 拖拽文件到此处，或点击选择文件</p>
+          <input type="file" id="upload-file-input" accept=".txt,.pdf,.doc,.docx,.md,.json" multiple hidden>
+        </div>
+        <input type="hidden" id="upload-doc-type" value="statutes">
+        <div id="upload-preview" class="upload-preview"></div>
+        <progress id="upload-progress" class="upload-progress" value="0" max="100" style="display:none"></progress>
+            <span id="upload-progress-label" class="upload-progress-label"></span>
+        <button id="btn-upload-confirm" class="btn-primary">确认上传</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- 右侧栏：会话记录 + 工具管理 -->
+<aside id="sidebar-right">
+  <div class="sidebar-header">
+    <h1>💬 会话记录</h1>
+  </div>
+  <section class="sidebar-section conversations">
+    <button id="new-conversation" class="btn-new-chat">+ 新建会话</button>
+    <div id="conversation-list" class="conversation-list"></div>
+  </section>
+
+  <!-- 可用工具开关 -->
+  <section class="sidebar-section tools-section">
+    <div class="tools-header">
+      <h3>🔧 可用工具</h3>
+      <span id="tools-count" class="tools-count"></span>
+    </div>
+    <div id="tools-toggle-list" class="tools-toggle-list">
+      <div class="tools-empty">加载中...</div>
+    </div>
+  </section>
+</aside>
+
+<!-- 引用详情侧面板 -->
+<div id="citation-panel" class="citation-panel" style="display:none">
+  <div class="citation-panel-header">
+    <h3>📚 引用来源</h3>
+    <button class="citation-close">&times;</button>
+  </div>
+  <div id="citation-content" class="citation-content"></div>
+</div>
+
+<!-- Markdown 渲染 -->
+<script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+<script src="/static/js/app.js?v=19"></script>
+</body>
+</html>

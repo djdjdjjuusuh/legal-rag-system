@@ -1,0 +1,28 @@
+services:
+  legal-rag-api:
+    build: .
+    container_name: legal-rag-system
+    ports:
+      - "8000:8000"
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-deepseek-chat}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://api.deepseek.com}
+      - TEMPERATURE=${TEMPERATURE:-0.3}
+      - MAX_TOKENS=${MAX_TOKENS:-4096}
+      - MAX_REACT_STEPS=${MAX_REACT_STEPS:-8}
+      - MAX_REFLECTION_ITERATIONS=${MAX_REFLECTION_ITERATIONS:-3}
+      - RAG_TOP_K=${RAG_TOP_K:-5}
+      - DEBUG=${DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - XDG_CACHE_HOME=/app/data/.cache
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
